@@ -109,6 +109,17 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
+  void _deleteNote() {
+    if (_selectedNote != null) {
+      setState(() {
+        notes.remove(_selectedNote);
+        _selectedNote = null;
+      });
+      _saveNotes();
+      Navigator.pop(context); // Voltar para a lista de notas
+    }
+  }
+
   Widget _buildNoteList() {
     return ListView.builder(
       itemCount: notes.length,
@@ -122,6 +133,15 @@ class _NotesScreenState extends State<NotesScreen> {
             setState(() {
               _selectedNote = note;
             });
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NoteDetailScreen(
+                  note: note,
+                  onDelete: _deleteNote,
+                ),
+              ),
+            );
           },
         );
       },
@@ -139,13 +159,7 @@ class _NotesScreenState extends State<NotesScreen> {
           : _selectedNote != null
               ? NoteDetailScreen(
                   note: _selectedNote!,
-                  onEdit: () {
-                    setState(() {
-                      _isAddingNote = true;
-                      _nameController.text = _selectedNote!['name'];
-                      _noteController.text = _selectedNote!['text'];
-                    });
-                  },
+                  onDelete: _deleteNote,
                 )
               : _buildNoteList(),
       floatingActionButton: FloatingActionButton(
@@ -234,9 +248,9 @@ class _NotesScreenState extends State<NotesScreen> {
 
 class NoteDetailScreen extends StatelessWidget {
   final Map<String, dynamic> note;
-  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  NoteDetailScreen({required this.note, required this.onEdit});
+  NoteDetailScreen({required this.note, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +260,38 @@ class NoteDetailScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: Icon(Icons.edit),
-            onPressed: onEdit,
+            onPressed: () {
+              Navigator.pop(context); // Voltar para a lista de notas
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Excluir Nota'),
+                    content: Text('Tem certeza de que deseja excluir esta nota?'),
+                    actions: [
+                      ElevatedButton(
+                        onPressed: () {
+                          onDelete(); // Chama a função de exclusão da nota
+                          Navigator.pop(context); // Fecha o diálogo
+                        },
+                        child: Text('Sim'),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context); // Fecha o diálogo
+                        },
+                        child: Text('Não'),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ],
       ),
