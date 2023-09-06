@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(MyApp());
@@ -30,8 +31,6 @@ class _NotesScreenState extends State<NotesScreen> {
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   bool _isAddingNote = false;
-
-  Map<String, dynamic>? _selectedNote;
 
   @override
   void initState() {
@@ -109,37 +108,25 @@ class _NotesScreenState extends State<NotesScreen> {
     );
   }
 
-  void _deleteNote() {
-    if (_selectedNote != null) {
-      setState(() {
-        notes.remove(_selectedNote);
-        _selectedNote = null;
-      });
-      _saveNotes();
-      Navigator.pop(context); // Voltar para a lista de notas
-    }
-  }
-
   Widget _buildNoteList() {
     return ListView.builder(
       itemCount: notes.length,
       itemBuilder: (context, index) {
         final note = notes[index];
         final noteName = note['name'] ?? 'Nome não definido';
+
+        // Formate o timestamp aqui
+        final formattedTimestamp =
+            DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.parse(note['timestamp']));
+
         return ListTile(
           title: Text(noteName),
-          subtitle: Text(note['timestamp']),
+          subtitle: Text(formattedTimestamp), // Use o timestamp formatado aqui
           onTap: () {
-            setState(() {
-              _selectedNote = note;
-            });
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => NoteDetailScreen(
-                  note: note,
-                  onDelete: _deleteNote,
-                ),
+                builder: (context) => NoteDetailScreen(note: note),
               ),
             );
           },
@@ -154,21 +141,11 @@ class _NotesScreenState extends State<NotesScreen> {
       appBar: AppBar(
         title: Text('Bloco de Notas'),
       ),
-      body: _isAddingNote
-          ? _buildNoteDetailScreen()
-          : _selectedNote != null
-              ? NoteDetailScreen(
-                  note: _selectedNote!,
-                  onDelete: _deleteNote,
-                )
-              : _buildNoteList(),
+      body: _isAddingNote ? _buildNoteDetailScreen() : _buildNoteList(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
             _isAddingNote = true;
-            _selectedNote = null;
-            _nameController.clear();
-            _noteController.clear();
           });
         },
         child: Icon(Icons.add),
@@ -205,41 +182,21 @@ class _NotesScreenState extends State<NotesScreen> {
           onPressed: () {
             if (_nameController.text.isNotEmpty &&
                 _noteController.text.isNotEmpty) {
-              if (_selectedNote == null) {
-                final newNote = {
-                  'name': _nameController.text,
-                  'text': _noteController.text,
-                  'timestamp': DateTime.now().toString(),
-                };
-                setState(() {
-                  notes.add(newNote);
-                  _nameController.clear();
-                  _noteController.clear();
-                  _isAddingNote = false;
-                });
-              } else {
-                // Editar a nota existente
-                final editedNoteIndex =
-                    notes.indexWhere((note) => note == _selectedNote);
-                if (editedNoteIndex != -1) {
-                  final editedNote = {
-                    'name': _nameController.text,
-                    'text': _noteController.text,
-                    'timestamp': _selectedNote!['timestamp'],
-                  };
-                  setState(() {
-                    notes[editedNoteIndex] = editedNote;
-                    _nameController.clear();
-                    _noteController.clear();
-                    _isAddingNote = false;
-                    _selectedNote = null;
-                  });
-                }
-              }
+              final newNote = {
+                'name': _nameController.text,
+                'text': _noteController.text,
+                'timestamp': DateTime.now().toString(),
+              };
+              setState(() {
+                notes.add(newNote);
+                _nameController.clear();
+                _noteController.clear();
+                _isAddingNote = false;
+              });
               _saveNotes();
             }
           },
-          child: Text(_selectedNote == null ? 'Salvar Nota' : 'Editar Nota'),
+          child: Text('Salvar Nota'),
         ),
       ],
     );
@@ -248,52 +205,14 @@ class _NotesScreenState extends State<NotesScreen> {
 
 class NoteDetailScreen extends StatelessWidget {
   final Map<String, dynamic> note;
-  final VoidCallback onDelete;
 
-  NoteDetailScreen({required this.note, required this.onDelete});
+  NoteDetailScreen({required this.note});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(note['name'] ?? 'Nome não definido'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.edit),
-            onPressed: () {
-              Navigator.pop(context); // Voltar para a lista de notas
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.delete),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: Text('Excluir Nota'),
-                    content: Text('Tem certeza de que deseja excluir esta nota?'),
-                    actions: [
-                      ElevatedButton(
-                        onPressed: () {
-                          onDelete(); // Chama a função de exclusão da nota
-                          Navigator.pop(context); // Fecha o diálogo
-                        },
-                        child: Text('Sim'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context); // Fecha o diálogo
-                        },
-                        child: Text('Não'),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -301,7 +220,7 @@ class NoteDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Data de Criação: ${note['timestamp']}',
+              'Data de Criação: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.parse(note['timestamp']))}',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
