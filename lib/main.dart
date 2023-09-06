@@ -31,6 +31,8 @@ class _NotesScreenState extends State<NotesScreen> {
   final TextEditingController _nameController = TextEditingController();
   bool _isAddingNote = false;
 
+  Map<String, dynamic>? _selectedNote;
+
   @override
   void initState() {
     super.initState();
@@ -117,12 +119,9 @@ class _NotesScreenState extends State<NotesScreen> {
           title: Text(noteName),
           subtitle: Text(note['timestamp']),
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => NoteDetailScreen(note: note),
-              ),
-            );
+            setState(() {
+              _selectedNote = note;
+            });
           },
         );
       },
@@ -135,11 +134,27 @@ class _NotesScreenState extends State<NotesScreen> {
       appBar: AppBar(
         title: Text('Bloco de Notas'),
       ),
-      body: _isAddingNote ? _buildNoteDetailScreen() : _buildNoteList(),
+      body: _isAddingNote
+          ? _buildNoteDetailScreen()
+          : _selectedNote != null
+              ? NoteDetailScreen(
+                  note: _selectedNote!,
+                  onEdit: () {
+                    setState(() {
+                      _isAddingNote = true;
+                      _nameController.text = _selectedNote!['name'];
+                      _noteController.text = _selectedNote!['text'];
+                    });
+                  },
+                )
+              : _buildNoteList(),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
             _isAddingNote = true;
+            _selectedNote = null;
+            _nameController.clear();
+            _noteController.clear();
           });
         },
         child: Icon(Icons.add),
@@ -176,21 +191,41 @@ class _NotesScreenState extends State<NotesScreen> {
           onPressed: () {
             if (_nameController.text.isNotEmpty &&
                 _noteController.text.isNotEmpty) {
-              final newNote = {
-                'name': _nameController.text,
-                'text': _noteController.text,
-                'timestamp': DateTime.now().toString(),
-              };
-              setState(() {
-                notes.add(newNote);
-                _nameController.clear();
-                _noteController.clear();
-                _isAddingNote = false;
-              });
+              if (_selectedNote == null) {
+                final newNote = {
+                  'name': _nameController.text,
+                  'text': _noteController.text,
+                  'timestamp': DateTime.now().toString(),
+                };
+                setState(() {
+                  notes.add(newNote);
+                  _nameController.clear();
+                  _noteController.clear();
+                  _isAddingNote = false;
+                });
+              } else {
+                // Editar a nota existente
+                final editedNoteIndex =
+                    notes.indexWhere((note) => note == _selectedNote);
+                if (editedNoteIndex != -1) {
+                  final editedNote = {
+                    'name': _nameController.text,
+                    'text': _noteController.text,
+                    'timestamp': _selectedNote!['timestamp'],
+                  };
+                  setState(() {
+                    notes[editedNoteIndex] = editedNote;
+                    _nameController.clear();
+                    _noteController.clear();
+                    _isAddingNote = false;
+                    _selectedNote = null;
+                  });
+                }
+              }
               _saveNotes();
             }
           },
-          child: Text('Salvar Nota'),
+          child: Text(_selectedNote == null ? 'Salvar Nota' : 'Editar Nota'),
         ),
       ],
     );
@@ -199,14 +234,21 @@ class _NotesScreenState extends State<NotesScreen> {
 
 class NoteDetailScreen extends StatelessWidget {
   final Map<String, dynamic> note;
+  final VoidCallback onEdit;
 
-  NoteDetailScreen({required this.note});
+  NoteDetailScreen({required this.note, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(note['name'] ?? 'Nome não definido'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: onEdit,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
